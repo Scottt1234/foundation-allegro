@@ -1679,6 +1679,42 @@
   const BEAT_COUNTS = [2, 3, 3, 3, 3, 3, 3, 3, 2];   // indexed by step 0..FINALE
   let beat = 1;
   function reportBeat() { if (embedded) toParent({ type: 'embed-step', step: step, beat: beat, beats: BEAT_COUNTS[step] || 1 }); }
+
+  // ── Beat auto-advance (layer frames only) ──────────────────────
+  // Inside a layer frame the caption lines play themselves: a line types, the
+  // card's visual reaches the moment that line describes, and the next beat
+  // fires. The gaps below are taken from each card's own animation schedule
+  // (Recommendation's engine returns at 5.6s and its proposal connects back at
+  // 11.3s; Analysis counts its figures at 5.7–6.3s) so the caption never runs
+  // ahead of the picture. The LAST beat is never auto-advanced — moving to the
+  // next frame stays a deliberate act, so the presenter keeps control.
+  const BEAT_GAP = {                 // step → ms between consecutive beats
+    1: [5000, 5300],                 // Process Mining          (cues 5.1s / 10.5s)
+    2: [5000, 6000],                 // Task Mining             (its longest lines; JS-timed visuals)
+    3: [5500, 4000],                 // Analysis                (figures count 5.7–6.3s, close 9.5s)
+    4: [5400, 5500],                 // Recommendation          (engine 5.6s, proposal links back 11.3s)
+    5: [5600, 5700],                 // Simulation              (cues 5.8s / 11.3s)
+    6: [4800, 5200],                 // Monitor                 (baselines 2–3s, drift 10.2s)
+    7: [5800, 5200],                 // Conversational Interface (types slower, at CPS 67)
+  };
+  let beatAutoTimer = null;
+  function clearBeatAuto() { clearTimeout(beatAutoTimer); beatAutoTimer = null; }
+  // Arm the next beat, if this frame has one left. Safe to call at any time —
+  // it always clears a pending run first, so it doubles as "re-arm from here".
+  function scheduleBeatAuto() {
+    clearBeatAuto();
+    const gaps = BEAT_GAP[step];
+    if (!gaps || beat >= (BEAT_COUNTS[step] || 1)) return;   // intro, finale, or holding on the last beat
+    beatAutoTimer = setTimeout(() => {
+      beatAutoTimer = null;
+      // The presenter may have moved on while this was pending — re-check.
+      if (!BEAT_GAP[step] || beat >= (BEAT_COUNTS[step] || 1)) return;
+      beat++;
+      fireNarBeat(currentBig, beat);
+      reportBeat();
+      scheduleBeatAuto();
+    }, gaps[beat - 1] || gaps[gaps.length - 1]);
+  }
   // Fire beat b's caption line in the open card's scene (registered by play*).
   function fireNarBeat(el, b) {
     if (!el) return;
@@ -1768,8 +1804,10 @@
     else if (el.querySelector('.mo-scene')) playMO(el);
     else if (el.querySelector('.cv-scene')) playConvo(el);
     fireNarBeat(el, beat);   // type the current beat's caption (1 on forward entry, last on reverse)
+    scheduleBeatAuto();      // ...and let the rest of this frame's beats play themselves
   }
   function stopScene(el) {
+    clearBeatAuto();
     if (!el) return;
     if (el.querySelector('.cv-scene')) stopConvo(el);
     else if (el.querySelector('.tm-scene')) stopTM(el);
@@ -2706,8 +2744,9 @@
     if (step === FINALE) beat = 2;        // render() shows the completed finale (jump/reverse/reduced motion)
     app.classList.toggle('finale-mode', step === FINALE);
     app.classList.toggle('finale-go', step === FINALE);
-    // reset any in-flight finale entry choreography
+    // reset any in-flight finale entry choreography / pending beat auto-advance
     clearFinaleTimers();
+    clearBeatAuto();
     caption.classList.remove('cap-hidden');
     capSub.style.opacity = '';
     railWrap.style.transform = ''; railWrap.style.transition = '';
@@ -2995,11 +3034,13 @@
       beat++;
       if (step === FINALE) finaleBeat2(); else fireNarBeat(currentBig, beat);
       reportBeat();
+      scheduleBeatAuto();
       return;
     }
     if (step < FINALE) goTo(step + 1); else if (embedded) toParent({ type: 'deck-next' });
   }
   function stepBackward() {
+    clearBeatAuto();   // stepping back is deliberate — don't let the auto-run push forward again
     if (step === 0 && introPhase === 1) { render(); return; }          // reveal → back to the question
     // Step back a beat within the frame first.
     if (step > 0 && beat > 1) {
