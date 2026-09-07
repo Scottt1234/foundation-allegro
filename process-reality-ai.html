@@ -77,8 +77,15 @@
       letter-spacing: -0.025em; color: #fff; margin: 0 0 12px;
     }
     #cap-title .hl { color: var(--sf-blue-l); }
+    /* Act-3 emphasis: "This" breathes to draw the eye to the delegation payoff. */
+    #cap-title .cap-pulse { animation: capWordPulse 2.4s 1.2s ease-in-out infinite; }
+    @keyframes capWordPulse {
+      0%, 100% { opacity: 1; text-shadow: 0 0 18px rgba(143,184,255,0.5); }
+      50%      { opacity: 0.6; text-shadow: 0 0 4px rgba(143,184,255,0.1); }
+    }
     .cap-fade { animation: capIn 0.7s cubic-bezier(0,0,0.2,1) both; }
     @keyframes capIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { #cap-title .cap-pulse { animation: none; } }
 
     /* Stats live inside the deck's 1080px content column rather than at the viewport
        edge — same alignment as slide-body content and the caption block above. */
@@ -99,6 +106,8 @@
     @media (max-width: 680px) { #stats .disclaim { display: none; } }
 
     /* Trace UI */
+    #tracehint { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 6; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.92); background: rgba(0,10,31,0.78); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.18); padding: 9px 18px; border-radius: 24px; display: none; pointer-events: none; box-shadow: 0 6px 24px rgba(0,0,0,0.4); }
+    #tracehint b { color: var(--sf-blue-l); }
     #traceread { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 22px; background: rgba(0,10,31,0.78); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.18); padding: 11px 20px 11px 18px; border-radius: 14px; box-shadow: 0 6px 28px rgba(0,0,0,0.4); }
     #traceread .lab { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sf-blue-l); }
     #traceread .grp { text-align: center; }
@@ -110,6 +119,9 @@
     @media (max-width: 680px) {
       #stats { gap: 16px; }
     }
+    /* Case-trace disabled in this deck variant — hide its UI and the crosshair */
+    #tracehint, #traceread { display: none !important; }
+    #fx { cursor: default; }
   </style>
 </head>
 <body>
@@ -137,6 +149,7 @@
     <div class="disclaim">Illustrative example. Process and figures are indicative only</div>
   </div>
 
+  <div id="tracehint"><b>Click any case</b> to trace its real journey →</div>
   <div id="traceread">
     <div class="lab">Case<br/>trace</div>
     <div class="grp"><div class="n" id="tr-steps">0</div><div class="t">Steps</div></div>
@@ -446,29 +459,31 @@
   // ── Case-trace state ───────────────────────────────────────────
   const trace = { active:false, edgesPath:[], visited:new Set(), steps:0, loops:0 };
   let tracedToken = null;
+  const elTraceHint = document.getElementById('tracehint');
   const elTraceRead = document.getElementById('traceread');
   const elTrSteps = document.getElementById('tr-steps');
   const elTrLoops = document.getElementById('tr-loops');
 
   function startTrace(node) {
-    clearTrace();
+    clearTrace(false);
     trace.active = true;
     trace.edgesPath = []; trace.visited = new Set([node]); trace.steps = 0; trace.loops = 0;
     const list = incident[node];
     const e = list && list.length ? list[(rnd()*list.length)|0] : edges[0];
     tracedToken = { edge:e, from:node, t:0, speed:140 };
+    elTraceHint.style.display = 'none';
     elTraceRead.style.display = 'flex';
     elTrSteps.textContent = '0'; elTrLoops.textContent = '0';
   }
-  // Act 3 no longer advertises the interaction, so there is no hint to restore —
-  // clearing just tears the trace down and hides the readout.
-  function clearTrace() {
+  function clearTrace(showHint = true) {
     trace.active = false; tracedToken = null; trace.edgesPath = [];
     elTraceRead.style.display = 'none';
+    elTraceHint.style.display = (showHint && act === 3) ? 'block' : 'none';
   }
-  document.getElementById('traceclear').addEventListener('click', () => clearTrace());
+  document.getElementById('traceclear').addEventListener('click', () => clearTrace(true));
 
   cv.addEventListener('click', (e) => {
+    return;   // case-trace disabled in this deck variant
     if (act !== 3) return;
     // Invert the camera zoom — hit-testing happens in unzoomed scene space.
     const zcx = W / 2, zcy = py(0.5);
@@ -500,7 +515,7 @@
     2: { eyebrow:'HOW YOU THINK IT RUNS',
          title:'The process you think you have.<br/><span class="hl">A few detours you already know about.</span>' },
     3: { eyebrow:'AND HOW IT REALLY LOOKS',
-         title:'The process you actually have.<br/><span class="hl">312,847 cases rarely follow the same route twice.</span>' },
+         title:'The process you actually have.<br/><span class="hl"><span class="cap-pulse">This</span> is the process you are about to delegate.</span>' },
   };
 
   let act = 1;
@@ -538,7 +553,8 @@
     if (entering3) { revealed = 0; rebuildLayers(); }  // fresh reveal every entry
     setCaption(n);
     document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', +b.dataset.act === n));
-    if (leaving3) clearTrace();
+    if (leaving3) clearTrace(false);
+    elTraceHint.style.display = (n === 3 && !trace.active) ? 'block' : 'none';
 
     nodes.forEach(nd => {
       const layout = n === 1 ? nd.a1 : n === 2 ? nd.a2 : nd.a3;
@@ -827,7 +843,7 @@
   const isFwdKey   = k => k === 'ArrowRight' || k === 'ArrowDown';
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { clearTrace(); return; }
+    if (e.key === 'Escape') { clearTrace(true); return; }
     if (!isArrowKey(e.key)) return;
     if (window.parent !== window) {
       // Embedded — relay to parent so the deck owns navigation.
