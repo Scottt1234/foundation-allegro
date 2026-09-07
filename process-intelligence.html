@@ -1240,15 +1240,13 @@
   // words that opened the section are the ones that close it.
   const PI_VARIANT = new URLSearchParams(location.search).get('v') || 'std';
   const INTRO_COPY = {
-    // Default is the exit/PE reading — "price". The operator reading — "fix" —
-    // is still here under ?v=ops for the freight and parcels workshops.
     std: {
-      line: '<span class="intro-l1">You can&rsquo;t <span class="hl mw">price</span> what you can&rsquo;t <span class="hl mw">see</span>.</span><span class="intro-div"></span><span class="intro-l2">And you can&rsquo;t <span class="hl mw">prove</span> what you can&rsquo;t <span class="hl mw">measure</span>.</span>',
-      close: '<span class="hl">...so you can price it, and prove it.</span>',
-    },
-    ops: {
       line: '<span class="intro-l1">You can&rsquo;t <span class="hl mw">fix</span> what you can&rsquo;t <span class="hl mw">see</span>.</span><span class="intro-div"></span><span class="intro-l2">And you can&rsquo;t <span class="hl mw">prove</span> what you can&rsquo;t <span class="hl mw">measure</span>.</span>',
       close: '<span class="hl">...so you can fix it, and prove it.</span>',
+    },
+    ma: {
+      line: '<span class="intro-l1">You can&rsquo;t <span class="hl mw">price</span> what you can&rsquo;t <span class="hl mw">see</span>.</span><span class="intro-div"></span><span class="intro-l2">And you can&rsquo;t <span class="hl mw">prove</span> what you can&rsquo;t <span class="hl mw">measure</span>.</span>',
+      close: '<span class="hl">...so you can price it, and prove it.</span>',
     },
   };
   const INTRO = INTRO_COPY[PI_VARIANT] || INTRO_COPY.std;
@@ -1742,8 +1740,8 @@
   // (Recommendation's engine returns at 5.6s and its proposal connects back at
   // 11.3s; Analysis counts its figures at 5.7–6.3s) so the narration never runs
   // ahead of the picture. The LAST beat is never auto-advanced — moving to the
-  // next frame stays a deliberate act, so the presenter keeps control of the
-  // frame-to-frame movement.
+  // next frame stays a deliberate act, which mirrors how the deck's own slides
+  // behave in manual mode (see inSlideBeatsRemain in foundation.html).
   const BEAT_GAP = {                 // step → ms between consecutive beats
     1: [5000, 5300],                 // Process Mining          (cues 5.1s / 10.5s)
     2: [5000, 6000],                 // Task Mining             (its longest lines; JS-timed visuals)
